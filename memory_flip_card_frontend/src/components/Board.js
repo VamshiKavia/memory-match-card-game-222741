@@ -19,20 +19,20 @@ export default function Board({ board, size, onFlip, isBusy }) {
   const cssVars =
     size === '6x6'
       ? {
-          // Base side length for cards on a dense grid
-          '--card-min': '56px',
+          // For dense grid, keep compact sizing
+          '--card-min': 'var(--card-size)',
           '--card-max': '1fr',
-          '--card-gap': '10px',
-          // Aspect ratio height percentage (width -> height mapping, keep 5:6)
+          '--card-gap': '6px',
           '--card-aspect': '120%',
-          '--card-font': 'clamp(14px, 2.4vw, 22px)',
+          '--card-font': 'clamp(12px, calc(var(--card-size) * 0.5), 18px)',
         }
       : {
-          '--card-min': '72px',
+          // For 4x4, still apply compact size to satisfy global requirement
+          '--card-min': 'var(--card-size)',
           '--card-max': '1fr',
-          '--card-gap': '12px',
+          '--card-gap': '8px',
           '--card-aspect': '120%',
-          '--card-font': 'clamp(18px, 3.2vw, 28px)',
+          '--card-font': 'clamp(12px, calc(var(--card-size) * 0.6), 20px)',
         };
 
   return (
