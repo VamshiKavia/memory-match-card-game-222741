@@ -15,14 +15,14 @@
   --card-back: #EC4899;
   --card-shadow: rgba(0,0,0,0.08);
 
-  /* New: sizing variables for board/cards with sensible defaults (used by Board to override) */
-  --card-size: 48px;   /* target fixed card width within 40–50px range */
-  --card-min: var(--card-size); /* minimum side (width) */
-  --card-max: 1fr;              /* maximum flex size per grid column */
-  --card-gap: 8px;              /* tighter gap for smaller cards */
-  --card-aspect: 120%;          /* height as percentage of width; 120% ~= 5:6 */
-  /* Glyph font size scales with card size with a small responsive bump */
-  --card-font: clamp(12px, calc(var(--card-size) * 0.55), 20px);
+  /* New: sizing variables for board/cards tuned for 20px cards */
+  --card-size: 20px;             /* exact fixed card width */
+  --card-min: var(--card-size);  /* minimum side (width) */
+  --card-max: var(--card-size);  /* lock to exact width to avoid stretching */
+  --card-gap: 3px;               /* proportional tighter gap for small cards */
+  --card-aspect: 120%;           /* height as percentage of width; 120% ~= 5:6 */
+  /* Glyph font size scales with card size; keep readable at 20px */
+  --card-font: clamp(10px, calc(var(--card-size) * 0.7), 14px);
 }
 
 [data-theme="dark"] {
@@ -211,9 +211,9 @@
 .card-face {
   position: absolute;
   inset: 0;
-  border-radius: 10px; /* slightly tighter radius for smaller size */
+  border-radius: 4px; /* tighter radius for tiny 20px cards */
   backface-visibility: hidden;
-  box-shadow: 0 8px 18px var(--card-shadow);
+  box-shadow: 0 4px 8px var(--card-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -223,19 +223,19 @@
 .card-front {
   background: var(--card-front);
   color: #fff;
-  border: 2px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
 }
 .card-back {
   background: var(--card-back);
   color: #fff;
   transform: rotateY(180deg);
-  border: 2px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.25);
 }
 /* Matched cards: keep faceUp and show success style and slight emphasis */
 .card.is-matched .card-back {
   background: linear-gradient(135deg, #10B981, #34D399);
-  border-color: rgba(255,255,255,0.3);
-  box-shadow: 0 12px 24px rgba(16,185,129,0.25);
+  border-color: rgba(255,255,255,0.35);
+  box-shadow: 0 6px 12px rgba(16,185,129,0.25);
 }
 .card-value {
   font-size: 1em; /* derived from --card-font */
@@ -250,16 +250,18 @@
   }
   .stats { justify-content: center; }
 
-  /* On smaller screens, slightly reduce gaps and keep compact size */
+  /* On smaller screens, keep very tight gaps for tiny cards */
   .board {
-    --card-gap: 6px;
+    --card-gap: 2px;
   }
 }
 
 /* Very small screens */
 @media (max-width: 420px) {
   .board {
-    --card-min: 46px; /* remain within the 40–50px range */
-    --card-gap: 6px;
+    /* Keep exact 20px size on very small screens too */
+    --card-min: 20px;
+    --card-max: 20px;
+    --card-gap: 2px;
   }
 }

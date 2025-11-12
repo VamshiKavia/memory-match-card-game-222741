@@ -19,20 +19,20 @@ export default function Board({ board, size, onFlip, isBusy }) {
   const cssVars =
     size === '6x6'
       ? {
-          // For dense grid, keep compact sizing
+          // Use exact fixed sizing for all grids
           '--card-min': 'var(--card-size)',
-          '--card-max': '1fr',
-          '--card-gap': '6px',
+          '--card-max': 'var(--card-size)',
+          '--card-gap': '3px',
           '--card-aspect': '120%',
-          '--card-font': 'clamp(12px, calc(var(--card-size) * 0.5), 18px)',
+          '--card-font': 'clamp(10px, calc(var(--card-size) * 0.7), 14px)',
         }
       : {
-          // For 4x4, still apply compact size to satisfy global requirement
+          // Same fixed sizing for 4x4, with slightly larger gap than 6x6
           '--card-min': 'var(--card-size)',
-          '--card-max': '1fr',
-          '--card-gap': '8px',
+          '--card-max': 'var(--card-size)',
+          '--card-gap': '4px',
           '--card-aspect': '120%',
-          '--card-font': 'clamp(12px, calc(var(--card-size) * 0.6), 20px)',
+          '--card-font': 'clamp(10px, calc(var(--card-size) * 0.7), 14px)',
         };
 
   return (
@@ -43,7 +43,7 @@ export default function Board({ board, size, onFlip, isBusy }) {
       aria-busy={isBusy ? 'true' : 'false'}
       style={{
         ...cssVars,
-        gridTemplateColumns: `repeat(${columns}, minmax(var(--card-min), var(--card-max)))`,
+        gridTemplateColumns: `repeat(${columns}, minmax(var(--card-size), var(--card-size)))`,
         pointerEvents: isBusy ? 'none' : 'auto', // disable interaction during evaluation
       }}
     >
