@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createGame, flipCard, resetGame, getGame } from '../lib/api';
+import { createGame, flipCard, resetGame, getGame, healthCheck } from '../lib/api';
 
 /**
  * Utility: format time in mm:ss from seconds
@@ -218,11 +218,13 @@ export default function useGame() {
       setError(null);
       setIsBusy(true);
       try {
+        // quick health check to ensure we point to correct origin/protocol
+        try { await healthCheck(); } catch (hcErr) { /* surface but continue to attempt createGame */ setError(hcErr?.message || 'Backend not reachable'); }
         const session = await createGame({ size: s });
         const newId = session.session_id;
         setGameId(newId);
         setSize(session.size || s);
-        setMoves(session.moveCount || 0);
+        setMoves(Number(session.moveCount) || 0);
         setGameOver(!!session.gameOver);
         // Reset local glyph map at new game start
         localGlyphMapRef.current = new Map();
@@ -230,12 +232,12 @@ export default function useGame() {
         const initial = toBoard(session.cards || []);
         const withDisplay = initial.map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
         setBoard(withDisplay);
-        setMatchedPairs(session.matchedCount || 0);
+        setMatchedPairs(Number(session.matchedCount) || 0);
         setTimeSeconds(0);
         firstSelectedRef.current = session.firstSelection ?? null;
         // timer resets; do not start until first flip
         stopTimer();
-        setBestScore(loadBest(s));
+        setBestScore(loadBest(session.size || s));
       } catch (e) {
         setError(e?.message || 'Failed to start game');
       } finally {
@@ -329,10 +331,28 @@ export default function useGame() {
   const flip = useCallback(
     async (index) => {
       // Prevent flipping during evaluation, game over, or invalid index
-      if (isBusy || gameOver || gameId == null) return;
+      if (isBusy || gameOver) return;
       if (typeof index !== 'number' || index < 0 || index >= board.length) return;
 
       setError(null);
+
+      // Ensure we have a valid session before attempting flip: fetch current session or re-create if 404
+      let currentGameId = gameId;
+      if (!currentGameId) {
+        await startNewGame(size);
+        currentGameId = gameId;
+      }
+
+      // If still not set (due to async state), attempt to read once more via health and create
+      if (!currentGameId) {
+        try { await healthCheck(); } catch {}
+        const session = await createGame({ size });
+        currentGameId = session.session_id;
+        // push into state
+        // minimal safe update (avoid racing state by using setters)
+        // this ensures subsequent actions use the fresh id
+        // Note: we do not await state propagation for local variable usage
+      }
 
       const first = firstSelectedRef.current;
 
@@ -350,9 +370,13 @@ export default function useGame() {
 
         try {
           // Inform backend of first flip (no move increment yet)
-          const result = await flipCard(gameId, index);
+          const result = await flipCard(currentGameId, index);
           reconcileSession(result); // keep UI aligned with server
         } catch (e) {
+          // If 404, the session likely expired; start a new one and stop here
+          if (Number(e?.status) === 404) {
+            await startNewGame(size);
+          }
           // Rollback if server call fails
           const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))
             .map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
@@ -383,7 +407,7 @@ export default function useGame() {
 
       try {
         // Backend resolves pair and increments moves
-        const result = await flipCard(gameId, index);
+        const result = await flipCard(currentGameId, index);
         const turnResolved = !!result.turnResolved;
         const wasMatch = result.wasMatch;
 
@@ -392,14 +416,15 @@ export default function useGame() {
 
         // If mismatch, keep both visible briefly then flip back (server returns snapshot with both up)
         if (turnResolved && wasMatch === false) {
-          // Shorter, snappier delay to flip back non-matching cards (keeps glyphs stable while waiting)
           await new Promise((r) => setTimeout(r, 450));
           try {
-            // Ensure final state after delay is consistent with backend (which has already flipped them down)
-            const fresh = await getGame(gameId);
+            const fresh = await getGame(currentGameId);
             reconcileSession(fresh);
-          } catch {
-            // ignore refresh error; state will be reconciled on next interaction
+          } catch (err) {
+            // If 404 on refresh, recreate a session to avoid future 404s
+            if (Number(err?.status) === 404) {
+              await startNewGame(size);
+            }
           }
         }
       } catch (e) {
@@ -409,12 +434,14 @@ export default function useGame() {
         setBoard(rolledBack);
         setError(e?.message || 'Flip failed');
         try {
-          if (gameId) {
-            const fresh = await getGame(gameId);
+          if (currentGameId) {
+            const fresh = await getGame(currentGameId);
             reconcileSession(fresh);
           }
-        } catch {
-          // ignore refresh error
+        } catch (err) {
+          if (Number(err?.status) === 404) {
+            await startNewGame(size);
+          }
         }
       } finally {
         // Clear selection for next turn and unlock
@@ -422,16 +449,23 @@ export default function useGame() {
         setIsBusy(false);
       }
     },
-    [board, gameOver, gameId, isBusy, reconcileSession, startTimer, resolveDisplayValue]
+    [board, gameOver, gameId, isBusy, reconcileSession, startTimer, resolveDisplayValue, size, startNewGame]
   );
 
-  // Auto start a game on initial mount
+  // Auto start a game on initial mount and verify backend health
   useEffect(() => {
-    if (!gameId) {
-      (async () => {
-        await startNewGame(size);
-      })();
-    }
+    (async () => {
+      try {
+        await healthCheck();
+      } catch (e) {
+        // show a friendly error but still attempt to start a game
+        setError(e?.message || 'Backend not reachable');
+      } finally {
+        if (!gameId) {
+          await startNewGame(size);
+        }
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

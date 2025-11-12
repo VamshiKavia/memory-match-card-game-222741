@@ -8,13 +8,13 @@
 import { getApiBase } from './env';
 
 /**
- * Build full API URL with /api prefix.
+ * Build full API URL with /api prefix as backend mounts under /api.
  * @param {string} path - Path starting with '/', e.g. '/game'
  * @returns {string} Full URL
  */
 function buildUrl(path) {
   const base = getApiBase();
-  const cleanBase = base.replace(/\/+$/, '');
+  const cleanBase = typeof base === 'string' ? base.replace(/\/*$/, '') : '';
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${cleanBase}/api${cleanPath}`;
 }
@@ -108,6 +108,18 @@ function safeJsonParse(text) {
 
 // PUBLIC_INTERFACE
 /**
+ * healthCheck
+ * Quick API health check to verify backend is reachable and mounted at '/' (no /api).
+ * Backend OpenAPI shows GET / as health.
+ * @returns {Promise<{status?:string}|null>}
+ */
+export async function healthCheck() {
+  const url = `${getApiBase().replace(/\/*$/, '')}/`;
+  return request(url, { method: 'GET' });
+}
+
+// PUBLIC_INTERFACE
+/**
  * createGame
  * Create a new game with specified board size.
  * @param {{ size: '4x4' | '6x6' }} payload
@@ -115,10 +127,14 @@ function safeJsonParse(text) {
  */
 export async function createGame({ size = '4x4' } = {}) {
   const url = buildUrl('/game');
-  return request(url, {
+  const session = await request(url, {
     method: 'POST',
     body: JSON.stringify({ size }),
   });
+  if (!session || typeof session.session_id !== 'string') {
+    throw new Error('Invalid createGame response: missing session_id');
+    }
+  return session;
 }
 
 // PUBLIC_INTERFACE
