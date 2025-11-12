@@ -133,7 +133,30 @@ export async function createGame({ size = '4x4' } = {}) {
   });
   if (!session || typeof session.session_id !== 'string') {
     throw new Error('Invalid createGame response: missing session_id');
+  }
+  // Sanity assertion for deck size: ensure 4x4 returns 16 cards with 8 unique values duplicated once
+  // (values may be masked initially; this is a soft validation in dev)
+  if (process.env.NODE_ENV !== 'production' && Array.isArray(session.cards) && session.size === '4x4') {
+    try {
+      const total = session.cards.length;
+      if (total !== 16) {
+        // eslint-disable-next-line no-console
+        console.warn('[createGame] Expected 16 cards for 4x4, got', total);
+      }
+      // If backend reveals values on init (rare), verify duplicates; otherwise skip
+      const revealed = session.cards.filter(c => (c.value != null));
+      if (revealed.length > 0) {
+        const counts = new Map();
+        revealed.forEach(c => counts.set(c.value, (counts.get(c.value) || 0) + 1));
+        // eslint-disable-next-line no-console
+        counts.forEach((cnt, val) => {
+          if (cnt % 2 !== 0) console.warn(`[createGame] Value ${val} appears odd times (${cnt})`);
+        });
+      }
+    } catch {
+      // non-fatal
     }
+  }
   return session;
 }
 

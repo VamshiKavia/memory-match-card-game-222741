@@ -155,7 +155,10 @@ export default function useGame() {
    */
   const resolveDisplayValue = useCallback((card) => {
     if (card == null) return null;
+    // If backend reveals a value, always use it for consistency of pairs
     if (card.value != null) return card.value;
+    // If UI needs to show it (faceUp or matched) but backend masked value,
+    // provide a stable local pseudo value so both selected cards remain visibly distinct.
     if (card.faceUp || card.matched) {
       const map = localGlyphMapRef.current;
       if (!map.has(card.index)) {
@@ -427,6 +430,7 @@ export default function useGame() {
             }
           }
         }
+        // If match, no further action required; both stay visible (matched)
       } catch (e) {
         // On failure, flip the second back optimistically and try to refetch
         const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))

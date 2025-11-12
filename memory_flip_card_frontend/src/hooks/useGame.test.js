@@ -90,11 +90,12 @@ describe('useGame core rules', () => {
 
     // Extract revealed values (none revealed at init)
     // Ensure pair counts by checking value distribution when force-revealed through session mapping helper:
-    // Simulate all faceUp to get values from backend shape
+    // Simulate all faceUp to get values from backend shape and ensure exactly two of each of 8 values
     const forcedCards = buildDeck16({ faceUp: Array.from({ length: 16 }, (_, i) => i) });
     const forcedValues = forcedCards.map(c => c.value);
     const counts = new Map();
     forcedValues.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+    expect(counts.size).toBe(8);
     counts.forEach((count) => expect(count).toBe(2));
   });
 
@@ -207,9 +208,9 @@ describe('useGame core rules', () => {
     });
     expect(isBusyMid).toBe(true);
 
-    // Advance the mismatch rollback delay (~900ms)
+    // Advance the mismatch rollback delay (~450ms per hook logic)
     await act(async () => {
-      jest.advanceTimersByTime(950);
+      jest.advanceTimersByTime(500);
     });
 
     const { board, moves, matchedPairs, isBusy } = result.current.state;

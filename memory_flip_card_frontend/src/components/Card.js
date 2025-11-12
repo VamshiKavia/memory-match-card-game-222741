@@ -12,7 +12,11 @@ import React from 'react';
 export default function Card({ card, onClick, disabled }) {
   const { faceUp, matched, value, displayValue } = card;
   const showValue = faceUp || matched;
-  const effectiveValue = (displayValue != null ? displayValue : value);
+  // Prefer backend-provided value when revealed; otherwise use stable local displayValue assigned by hook
+  const effectiveValue =
+    showValue
+      ? (value != null ? value : displayValue)
+      : null;
 
   const ariaLabel = matched
     ? 'Matched card'
@@ -61,6 +65,8 @@ export default function Card({ card, onClick, disabled }) {
  * @returns {string}
  */
 function renderValueGlyph(v) {
+  // First 8 glyphs are used for 4x4 to ensure exactly 8 unique symbols duplicated once.
+  // For larger boards (6x6), wrap through full list but modulo keeps consistency.
   const glyphs = ['🍎','🍊','🍌','🍉','🍇','🍓','🍒','🍑','🍍','🥝','🥥','🥑','🌶️','🥕','🌽','🥔','🧀','🥨'];
-  return glyphs[v % glyphs.length];
+  return glyphs[Math.abs(v) % glyphs.length];
 }

@@ -31,6 +31,8 @@ function App() {
 
   // Memoize onFlip to avoid re-renders
   const onFlip = useMemo(() => (index) => {
+    // Ensure click passes to game logic; first flip remains visible,
+    // second keeps both visible during evaluation (handled in hook).
     flip(index);
   }, [flip]);
 
