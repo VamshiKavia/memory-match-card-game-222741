@@ -91,7 +91,7 @@ export default function Header({ state, actions, onChangeSize }) {
       )}
       {error && (
         <div className="banner error" role="alert">
-          ⚠️ {error}
+          ⚠️ {typeof error === 'string' ? error : (error?.message || JSON.stringify(error))}
         </div>
       )}
     </header>

@@ -27,17 +27,39 @@ function buildUrl(path) {
  * @returns {Error}
  */
 function toApiError(status, body, url) {
-  const err = new Error(
-    (body && (body.message || body.detail || body.error || body.code)) ||
-      `Request failed with status ${status}`
-  );
+  const baseMsg = `Request failed with status ${status}`;
+  let message;
+  if (body == null) {
+    message = baseMsg;
+  } else if (typeof body === 'string') {
+    message = body || baseMsg;
+  } else if (typeof body === 'object') {
+    message =
+      body.message ||
+      body.detail ||
+      body.error ||
+      body.code ||
+      baseMsg;
+    if (typeof message !== 'string') {
+      message = String(message);
+    }
+  } else {
+    message = String(body) || baseMsg;
+  }
+
+  const err = new Error(message);
   err.status = status;
   err.url = url;
-  // Preserve backend error structure if available
+  // Preserve backend error structure if available (non-enumerable to avoid UI leaking raw object)
   if (body && typeof body === 'object') {
     err.code = body.code || body.type || undefined;
     err.details = body.details || body.detail || undefined;
-    err.raw = body;
+    Object.defineProperty(err, 'raw', {
+      value: body,
+      enumerable: false, // do not get stringified accidentally
+      configurable: true,
+      writable: false
+    });
   }
   return err;
 }

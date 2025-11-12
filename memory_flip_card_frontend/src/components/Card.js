@@ -38,7 +38,15 @@ export default function Card({ card, onClick, disabled }) {
         <div className="card-face card-back">
           <span className="card-value">
             {showValue
-              ? (effectiveValue == null ? '•' : renderValueGlyph(effectiveValue))
+              ? (effectiveValue == null
+                  ? '•'
+                  : renderValueGlyph(
+                      typeof effectiveValue === 'number'
+                        ? effectiveValue
+                        : Number.isFinite(Number(effectiveValue))
+                          ? Number(effectiveValue)
+                          : 0
+                    ))
               : ''}
           </span>
         </div>

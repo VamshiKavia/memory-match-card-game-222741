@@ -287,13 +287,17 @@ export default function useGame() {
     const session = payload.session || payload;
     // Targeted trace for debugging; avoid sensitive/large logs
     if (process.env.NODE_ENV !== 'production') {
-      console.debug('[useGame] reconcile', {
-        moveCount: session.moveCount,
-        matchedCount: session.matchedCount,
-        gameOver: session.gameOver,
-        firstSelection: session.firstSelection,
-        cardsLen: Array.isArray(session.cards) ? session.cards.length : 0,
-      });
+      try {
+        console.debug('[useGame] reconcile', {
+          moveCount: Number(session.moveCount) || 0,
+          matchedCount: Number(session.matchedCount) || 0,
+          gameOver: !!session.gameOver,
+          firstSelection: session.firstSelection ?? null,
+          cardsLen: Array.isArray(session.cards) ? session.cards.length : 0,
+        });
+      } catch {
+        // ignore debug log errors
+      }
     }
     setMoves(session.moveCount || 0);
     setMatchedPairs(session.matchedCount || 0);
