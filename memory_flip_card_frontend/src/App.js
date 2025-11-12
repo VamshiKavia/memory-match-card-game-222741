@@ -1,47 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React, { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import useGame from './hooks/useGame';
+import Header from './components/Header';
+import Board from './components/Board';
 
 // PUBLIC_INTERFACE
 function App() {
   const [theme, setTheme] = useState('light');
+  const { state, actions } = useGame();
 
-  // Effect to apply theme to document element
+  // Apply theme to document element
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
   // PUBLIC_INTERFACE
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
+
+  const { board, size, isBusy } = state;
+  const { flip, startNewGame, setSize } = actions;
+
+  // When size changes from header, update and start a new game
+  const handleChangeSize = async (nextSize) => {
+    if (nextSize === size) return;
+    setSize(nextSize);
+    await startNewGame(nextSize);
+  };
+
+  // Memoize onFlip to avoid re-renders
+  const onFlip = useMemo(() => (index) => {
+    flip(index);
+  }, [flip]);
 
   return (
     <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <button
+        className="theme-toggle"
+        onClick={toggleTheme}
+        aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      >
+        {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+      </button>
+
+      <Header state={state} actions={actions} onChangeSize={handleChangeSize} />
+      <Board board={board} size={size} onFlip={onFlip} isBusy={isBusy} />
     </div>
   );
 }
