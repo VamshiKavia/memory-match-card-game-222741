@@ -14,27 +14,8 @@ import Card from './Card';
 export default function Board({ board, size, onFlip, isBusy }) {
   const columns = useMemo(() => (size === '6x6' ? 6 : 4), [size]);
 
-  // Define per-size CSS variable overrides for consistent scaling.
-  // Smaller base for 6x6 to fit more cards, slightly larger for 4x4.
-  const cssVars =
-    size === '6x6'
-      ? {
-          // Use exact fixed sizing for all grids
-          '--card-min': 'var(--card-size)',
-          '--card-max': 'var(--card-size)',
-          '--card-gap': '3px',
-          '--card-aspect': '120%',
-          '--card-font': 'clamp(10px, calc(var(--card-size) * 0.7), 14px)',
-        }
-      : {
-          // Same fixed sizing for 4x4, with slightly larger gap than 6x6
-          '--card-min': 'var(--card-size)',
-          '--card-max': 'var(--card-size)',
-          '--card-gap': '4px',
-          '--card-aspect': '120%',
-          '--card-font': 'clamp(10px, calc(var(--card-size) * 0.7), 14px)',
-        };
-
+  // Let global CSS variables determine size/gaps/fonts.
+  // Only specify the number of columns here.
   return (
     <section
       className="board"
@@ -42,7 +23,6 @@ export default function Board({ board, size, onFlip, isBusy }) {
       aria-label="Memory board"
       aria-busy={isBusy ? 'true' : 'false'}
       style={{
-        ...cssVars,
         gridTemplateColumns: `repeat(${columns}, minmax(var(--card-size), var(--card-size)))`,
         pointerEvents: isBusy ? 'none' : 'auto', // disable interaction during evaluation
       }}

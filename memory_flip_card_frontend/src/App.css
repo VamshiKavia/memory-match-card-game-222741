@@ -15,14 +15,14 @@
   --card-back: #EC4899;
   --card-shadow: rgba(0,0,0,0.08);
 
-  /* New: sizing variables for board/cards tuned for 20px cards */
-  --card-size: 20px;             /* exact fixed card width */
+  /* Global sizing variables for board/cards tuned for 30px cards */
+  --card-size: 30px;             /* exact fixed card width */
   --card-min: var(--card-size);  /* minimum side (width) */
   --card-max: var(--card-size);  /* lock to exact width to avoid stretching */
-  --card-gap: 3px;               /* proportional tighter gap for small cards */
+  --card-gap: 4px;               /* balanced gap for 30px tiles */
   --card-aspect: 120%;           /* height as percentage of width; 120% ~= 5:6 */
-  /* Glyph font size scales with card size; keep readable at 20px */
-  --card-font: clamp(10px, calc(var(--card-size) * 0.7), 14px);
+  /* Glyph font size scales with card size */
+  --card-font: clamp(12px, calc(var(--card-size) * 0.7), 18px);
 }
 
 [data-theme="dark"] {
@@ -44,6 +44,9 @@
   background: radial-gradient(1200px 800px at 50% -10%, #ffe4ef 0%, var(--bg-primary) 40%);
   transition: background-color 0.3s ease, color 0.3s ease;
   color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* center horizontally */
 }
 
 .theme-toggle {
@@ -68,8 +71,9 @@
 /* Header */
 .game-header {
   max-width: 1040px;
+  width: 100%;
   margin: 0 auto;
-  padding: 32px 20px 8px;
+  padding: 24px 20px 8px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: 16px;
@@ -178,10 +182,13 @@
 /* Board */
 .board {
   max-width: 1040px;
+  width: 100%;
   margin: 8px auto 48px;
   padding: 0 20px;
   display: grid;
   gap: var(--card-gap);
+  place-content: center; /* helps centering grid when there is extra space */
+  justify-content: center; /* center horizontally */
 }
 
 /* Card */
@@ -211,7 +218,7 @@
 .card-face {
   position: absolute;
   inset: 0;
-  border-radius: 4px; /* tighter radius for tiny 20px cards */
+  border-radius: 6px; /* slightly rounder for 30px cards */
   backface-visibility: hidden;
   box-shadow: 0 4px 8px var(--card-shadow);
   display: flex;
@@ -247,21 +254,22 @@
     grid-template-columns: 1fr;
     gap: 10px;
     text-align: center;
+    padding-top: 16px;
   }
   .stats { justify-content: center; }
 
-  /* On smaller screens, keep very tight gaps for tiny cards */
+  /* On smaller screens, tighten gaps slightly */
   .board {
-    --card-gap: 2px;
+    --card-gap: 3px;
   }
 }
 
 /* Very small screens */
 @media (max-width: 420px) {
   .board {
-    /* Keep exact 20px size on very small screens too */
-    --card-min: 20px;
-    --card-max: 20px;
+    /* Keep exact 30px size on very small screens too */
+    --card-min: 30px;
+    --card-max: 30px;
     --card-gap: 2px;
   }
 }
