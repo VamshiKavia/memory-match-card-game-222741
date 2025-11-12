@@ -285,6 +285,16 @@ export default function useGame() {
    */
   const reconcileSession = useCallback((payload) => {
     const session = payload.session || payload;
+    // Targeted trace for debugging; avoid sensitive/large logs
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[useGame] reconcile', {
+        moveCount: session.moveCount,
+        matchedCount: session.matchedCount,
+        gameOver: session.gameOver,
+        firstSelection: session.firstSelection,
+        cardsLen: Array.isArray(session.cards) ? session.cards.length : 0,
+      });
+    }
     setMoves(session.moveCount || 0);
     setMatchedPairs(session.matchedCount || 0);
     setGameOver(!!session.gameOver);

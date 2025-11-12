@@ -32,7 +32,7 @@ export default function Board({ board, size, onFlip, isBusy }) {
           key={card.id}
           card={card}
           onClick={() => onFlip(card.index)}
-          disabled={isBusy || card.matched}
+          disabled={isBusy || card.matched || card.faceUp}
         />
       ))}
     </section>
