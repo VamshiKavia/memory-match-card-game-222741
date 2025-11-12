@@ -5,7 +5,7 @@ import React from 'react';
  *
  * PUBLIC_INTERFACE
  * @param {Object} props
- * @param {{id:string,index:number,faceUp:boolean,matched:boolean,value?:number|null}} props.card
+ * @param {{id:string,index:number,faceUp:boolean,matched:boolean,value?:number|null,displayValue?:number|null}} props.card
  * @param {() => void} props.onClick
  * @param {boolean} props.disabled
  */

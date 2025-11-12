@@ -14,6 +14,7 @@ export default function Header({ state, actions, onChangeSize }) {
     size,
     moves,
     matchedPairs,
+    totalPairs,
     formattedTime,
     bestScore,
     isBusy,
@@ -61,14 +62,14 @@ export default function Header({ state, actions, onChangeSize }) {
       </div>
 
       <div className="stats" role="status" aria-live="polite">
-        <div className="stat">
-          <span className="stat-label">Moves</span>
-          <span className="stat-value">{moves}</span>
+        {/* Score summary required by task */}
+        <div className="stat score" aria-label="Score summary">
+          <span className="stat-label">Score</span>
+          <span className="stat-value">
+            {moves} moves • {matchedPairs}/{totalPairs} pairs
+          </span>
         </div>
-        <div className="stat">
-          <span className="stat-label">Pairs</span>
-          <span className="stat-value">{matchedPairs}</span>
-        </div>
+
         <div className="stat">
           <span className="stat-label">Time</span>
           <span className="stat-value">{formattedTime}</span>

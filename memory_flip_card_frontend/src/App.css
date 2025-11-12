@@ -125,7 +125,12 @@
 .stat.best {
   border-color: rgba(16,185,129,0.35);
 }
+/* New score styling */
+.stat.score {
+  border-color: rgba(236, 72, 153, 0.35);
+}
 
+/*. Banners */
 .banner {
   grid-column: 1 / -1;
   margin-top: 8px;
@@ -214,9 +219,11 @@
   transform: rotateY(180deg);
   border: 2px solid rgba(255,255,255,0.2);
 }
+/* Matched cards: keep faceUp and show success style and slight emphasis */
 .card.is-matched .card-back {
   background: linear-gradient(135deg, #10B981, #34D399);
   border-color: rgba(255,255,255,0.3);
+  box-shadow: 0 12px 24px rgba(16,185,129,0.25);
 }
 .card-value {
   font-size: clamp(20px, 4vw, 36px);

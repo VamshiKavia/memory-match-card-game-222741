@@ -98,15 +98,16 @@ function saveBest(size, candidate) {
  *
  * State shape returned:
  * {
- *   board: Array<{id,index,faceUp,matched,value?}>,
+ *   board: Array<{id,index,faceUp,matched,value?,displayValue?}>,
  *   size: '4x4'|'6x6',
  *   moves: number,
  *   matchedPairs: number,
+ *   totalPairs: number,
  *   gameOver: boolean,
  *   timeSeconds: number,
  *   formattedTime: string,
  *   bestScore: {moves:number,timeSeconds:number} | null,
- *   isBusy: boolean,
+ *   isBusy: boolean, // lockDuringEval
  *   error: string | null,
  * }
  *
@@ -126,9 +127,12 @@ export default function useGame() {
   const [matchedPairs, setMatchedPairs] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [timeSeconds, setTimeSeconds] = useState(0);
-  const [isBusy, setIsBusy] = useState(false);
+  const [isBusy, setIsBusy] = useState(false); // lockDuringEval
   const [error, setError] = useState(null);
   const [bestScore, setBestScore] = useState(null);
+
+  // Derived: total pairs from board length
+  const totalPairs = useMemo(() => Math.floor((board?.length || 0) / 2), [board]);
 
   // Track timer running and interval
   const timerRef = useRef(null);
@@ -215,7 +219,6 @@ export default function useGame() {
       setIsBusy(true);
       try {
         const session = await createGame({ size: s });
-        // Normalize from backend response GameSessionView
         const newId = session.session_id;
         setGameId(newId);
         setSize(session.size || s);
@@ -225,7 +228,6 @@ export default function useGame() {
         localGlyphMapRef.current = new Map();
         nextGlyphValRef.current = 0;
         const initial = toBoard(session.cards || []);
-        // Compute displayValue immediately for UI
         const withDisplay = initial.map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
         setBoard(withDisplay);
         setMatchedPairs(session.matchedCount || 0);
@@ -234,20 +236,13 @@ export default function useGame() {
         // timer resets; do not start until first flip
         stopTimer();
         setBestScore(loadBest(s));
-        // Debug logs to aid diagnosis of masked values
-        try {
-          // eslint-disable-next-line no-console
-          console.debug('[Game] createGame session', { sessionId: newId, size: session.size, cards: session.cards });
-          // eslint-disable-next-line no-console
-          console.debug('[Game] initial board', withDisplay.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
-        } catch {}
       } catch (e) {
         setError(e?.message || 'Failed to start game');
       } finally {
         setIsBusy(false);
       }
     },
-    [size, stopTimer]
+    [size, stopTimer, resolveDisplayValue]
   );
 
   /**
@@ -255,7 +250,6 @@ export default function useGame() {
    */
   const reset = useCallback(async () => {
     if (!gameId) {
-      // If no game yet, just start a new one
       await startNewGame(size);
       return;
     }
@@ -268,7 +262,6 @@ export default function useGame() {
       setSize(session.size || size);
       setMoves(session.moveCount || 0);
       setGameOver(!!session.gameOver);
-      // Reset local pseudo glyph state on reset
       localGlyphMapRef.current = new Map();
       nextGlyphValRef.current = 0;
       const initial = toBoard(session.cards || []);
@@ -279,18 +272,12 @@ export default function useGame() {
       firstSelectedRef.current = session.firstSelection ?? null;
       stopTimer();
       setBestScore(loadBest(session.size || size));
-      try {
-        // eslint-disable-next-line no-console
-        console.debug('[Game] resetGame session', { sessionId: session.session_id, size: session.size, cards: session.cards });
-        // eslint-disable-next-line no-console
-        console.debug('[Game] board after reset', withDisplay.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
-      } catch {}
     } catch (e) {
       setError(e?.message || 'Failed to reset game');
     } finally {
       setIsBusy(false);
     }
-  }, [gameId, size, startNewGame, stopTimer]);
+  }, [gameId, size, startNewGame, stopTimer, resolveDisplayValue]);
 
   /**
    * Reconcile session state from backend FlipResult or GameSessionView
@@ -298,27 +285,11 @@ export default function useGame() {
    */
   const reconcileSession = useCallback((payload) => {
     const session = payload.session || payload;
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[Game] reconcile payload', {
-        moveCount: session.moveCount,
-        matchedCount: session.matchedCount,
-        firstSelection: session.firstSelection,
-        gameOver: session.gameOver,
-        sampleCards: (session.cards || []).slice(0, 4)
-      });
-    } catch {}
     setMoves(session.moveCount || 0);
     setMatchedPairs(session.matchedCount || 0);
     setGameOver(!!session.gameOver);
     const mapped = toBoard(session.cards || []);
-    const withDisplay = mapped.map((c) => {
-      // If backend now provides value for an index we had a local mapping for, prefer backend
-      if (c.value != null && localGlyphMapRef.current.has(c.index)) {
-        // optional: keep map entry but it won't be used when value exists
-      }
-      return { ...c, displayValue: resolveDisplayValue(c) };
-    });
+    const withDisplay = mapped.map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
     setBoard(withDisplay);
     firstSelectedRef.current = session.firstSelection ?? null;
   }, [resolveDisplayValue]);
@@ -329,7 +300,6 @@ export default function useGame() {
   useEffect(() => {
     if (gameOver) {
       stopTimer();
-      // Save best score if better
       const current = { moves, timeSeconds };
       const saved = saveBest(size, current);
       setBestScore(saved);
@@ -344,6 +314,7 @@ export default function useGame() {
    */
   const flip = useCallback(
     async (index) => {
+      // Prevent flipping during evaluation, game over, or invalid index
       if (isBusy || gameOver || gameId == null) return;
       if (typeof index !== 'number' || index < 0 || index >= board.length) return;
 
@@ -352,7 +323,7 @@ export default function useGame() {
       const first = firstSelectedRef.current;
 
       if (first == null) {
-        // Optimistic first flip: reveal the selected card locally
+        // Optimistic first flip: reveal and keep it visible
         const prev = board;
         const target = prev[index];
         if (!target || target.faceUp || target.matched) return;
@@ -361,20 +332,14 @@ export default function useGame() {
         ).map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
         setBoard(optimistic);
         firstSelectedRef.current = index;
-        // start timer on very first flip of the game session
         startTimer();
 
         try {
-          // Send first flip to backend (no move increment yet)
+          // Inform backend of first flip (no move increment yet)
           const result = await flipCard(gameId, index);
-          try {
-            // eslint-disable-next-line no-console
-            console.debug('[Game] first flip result', { turnResolved: result.turnResolved, wasMatch: result.wasMatch, sessionMoves: result?.session?.moveCount });
-          } catch {}
-          // Merge with server truth to avoid drift
-          reconcileSession(result);
+          reconcileSession(result); // keep UI aligned with server
         } catch (e) {
-          // Rollback optimistic flip on error
+          // Rollback if server call fails
           const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))
             .map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
           setBoard(rolledBack);
@@ -384,81 +349,70 @@ export default function useGame() {
         return;
       }
 
-      // Second flip: we need to lock until resolution
-      if (first === index) return; // ignore flipping the same card
+      // Second flip handling
+      if (first === index) return; // ignore same card
 
       const prev = board;
       const firstCard = prev[first];
       const secondCard = prev[index];
-
       if (!firstCard || !secondCard) return;
       if (secondCard.faceUp || secondCard.matched) return;
 
-      // Optimistically flip second card to show the user
+      // Optimistically reveal second card
       const optimisticSecond = prev.map((c, i) =>
         i === index ? { ...c, faceUp: true } : c
       ).map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
       setBoard(optimisticSecond);
+
+      // Lock to prevent third flip while we evaluate
       setIsBusy(true);
 
       try {
+        // Backend resolves pair and increments moves
         const result = await flipCard(gameId, index);
-        // Server will increment moveCount and determine match
         const turnResolved = !!result.turnResolved;
         const wasMatch = result.wasMatch;
 
-        try {
-          // eslint-disable-next-line no-console
-          console.debug('[Game] second flip result', { turnResolved, wasMatch, sessionMoves: result?.session?.moveCount });
-        } catch {}
-
-        // Always reconcile to server state first
+        // Reconcile to server truth right away
         reconcileSession(result);
 
+        // If mismatch, keep both visible briefly then flip back (server may already reflect this)
         if (turnResolved && wasMatch === false) {
-          // Not a match: briefly show both, then flip them back.
-          // However, server state may already have one or both face-down.
-          // To ensure UX delay, we display current board for ~1s, then fetch session to ensure final.
-          await new Promise((r) => setTimeout(r, 1000));
-          // Refresh state from server to avoid desync after delay
+          await new Promise((r) => setTimeout(r, 900)); // ~0.9s delay
           try {
+            // Ensure final state after delay is consistent with backend
             const fresh = await getGame(gameId);
-            try {
-              // eslint-disable-next-line no-console
-              console.debug('[Game] refreshed session after mismatch delay', { moveCount: fresh.moveCount, matchedCount: fresh.matchedCount });
-            } catch {}
             reconcileSession(fresh);
           } catch {
-            // If refresh fails, we keep whatever state we already have from result
+            // if unable to refresh, we keep reconciled state
           }
         }
       } catch (e) {
-        // On error, rollback the optimistic second flip
+        // On failure, flip the second back optimistically and try to refetch
         const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))
           .map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
         setBoard(rolledBack);
         setError(e?.message || 'Flip failed');
-        // best-effort sync from server to avoid drift
         try {
           if (gameId) {
             const fresh = await getGame(gameId);
             reconcileSession(fresh);
           }
         } catch {
-          // ignore
+          // ignore refresh error
         }
       } finally {
-        firstSelectedRef.current = null; // turn completed or failed; next turn fresh
+        // Clear selection for next turn and unlock
+        firstSelectedRef.current = null;
         setIsBusy(false);
       }
     },
     [board, gameOver, gameId, isBusy, reconcileSession, startTimer, resolveDisplayValue]
   );
 
-  // Initial auto-start a game on mount if none exists
+  // Auto start a game on initial mount
   useEffect(() => {
     if (!gameId) {
-      // Fire and forget; no dependency on startNewGame to avoid eslint exhaustive-deps noise
       (async () => {
         await startNewGame(size);
       })();
@@ -468,20 +422,13 @@ export default function useGame() {
 
   const formattedTime = useMemo(() => formatTime(timeSeconds), [timeSeconds]);
 
-  // Dev-only: log board concise summary when it changes; helpful for diagnosing missing glyphs
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[Game] board update', board.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
-    } catch {}
-  }, [board]);
-
   const state = useMemo(
     () => ({
       board,
       size,
       moves,
       matchedPairs,
+      totalPairs,
       gameOver,
       timeSeconds,
       formattedTime,
@@ -495,6 +442,7 @@ export default function useGame() {
       size,
       moves,
       matchedPairs,
+      totalPairs,
       gameOver,
       timeSeconds,
       formattedTime,

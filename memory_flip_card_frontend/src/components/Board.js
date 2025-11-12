@@ -6,7 +6,7 @@ import Card from './Card';
  *
  * PUBLIC_INTERFACE
  * @param {Object} props
- * @param {Array<{id:string,index:number,faceUp:boolean,matched:boolean,value?:number|null}>} props.board
+ * @param {Array<{id:string,index:number,faceUp:boolean,matched:boolean,value?:number|null,displayValue?:number|null}>} props.board
  * @param {'4x4'|'6x6'} props.size
  * @param {(index:number)=>void} props.onFlip
  * @param {boolean} props.isBusy
@@ -19,8 +19,10 @@ export default function Board({ board, size, onFlip, isBusy }) {
       className="board"
       role="grid"
       aria-label="Memory board"
+      aria-busy={isBusy ? 'true' : 'false'}
       style={{
         gridTemplateColumns: `repeat(${columns}, minmax(64px, 1fr))`,
+        pointerEvents: isBusy ? 'none' : 'auto', // disable interaction during evaluation
       }}
     >
       {board.map((card) => (
