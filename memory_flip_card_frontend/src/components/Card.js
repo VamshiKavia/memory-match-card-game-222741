@@ -12,7 +12,9 @@ import React from 'react';
 export default function Card({ card, onClick, disabled }) {
   const { faceUp, matched, value, displayValue } = card;
   const showValue = faceUp || matched;
-  // Prefer backend-provided value when revealed; otherwise use stable local displayValue assigned by hook
+
+  // IMPORTANT: Only use per-index values provided by backend (value) or per-index temporary displayValue.
+  // Never derive a single global glyph or fallback to a constant that would apply to all cards.
   const effectiveValue =
     showValue
       ? (value != null ? value : displayValue)
@@ -65,9 +67,7 @@ export default function Card({ card, onClick, disabled }) {
  * @returns {string}
  */
 function renderValueGlyph(v) {
-  // For 4x4 the backend should use exactly this fixed set duplicated once and shuffled:
-  // 🍎, 🍌, 🍇, 🍉, 🍒, 🥝, 🍑, 🍍
-  // Keep these as the first eight entries so modulo mapping preserves intended visuals when values are 0..7.
+  // Keep fixed first 8 glyphs matching backend 4x4 set; this function uses per-index numeric value.
   const glyphs = ['🍎','🍌','🍇','🍉','🍒','🥝','🍑','🍍',  '🍊','🍓','🥥','🥑','🌶️','🥕','🌽','🥔','🧀','🥨'];
   return glyphs[Math.abs(v) % glyphs.length];
 }

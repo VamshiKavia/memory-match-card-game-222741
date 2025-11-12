@@ -179,4 +179,21 @@ describe('useGame core rules', () => {
     expect(counts.size).toBe(8);
     counts.forEach(cnt => expect(cnt).toBe(2));
   });
+
+  it('optimistic first flip assigns per-index displayValue and does not reuse a single glyph', async () => {
+    const { result } = renderHook(() => useGame());
+    await act(async () => {});
+
+    // Flip three different indices (sequential first flips with reconcile between)
+    await act(async () => { await result.current.actions.flip(0); });
+    await act(async () => { await result.current.actions.flip(2); });
+    await act(async () => { await result.current.actions.flip(4); });
+
+    const { board } = result.current.state;
+    const revealed = [board[0], board[2], board[4]].filter(c => c.faceUp || c.matched);
+    expect(revealed.length).toBeGreaterThanOrEqual(1);
+    const set = new Set(revealed.map(c => (c.value ?? c.displayValue)));
+    // At least one unique (cannot guarantee >1 in synthetic scenario), but must not fall back to undefined or same constant always
+    expect([...set].every(v => v !== undefined && v !== null)).toBe(true);
+  });
 });

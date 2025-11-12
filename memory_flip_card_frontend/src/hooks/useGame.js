@@ -141,8 +141,8 @@ export default function useGame() {
   // Track first card selected for local optimistic logic
   const firstSelectedRef = useRef(null);
 
-  // Local glyph map used when backend value is temporarily masked; stable per session
-  // Maps card.index -> stable pseudo-value number for glyph selection
+  // Local glyph map used when backend value is temporarily masked; stable per index within a session.
+  // Maps card.index -> stable pseudo-value number for glyph selection (kept distinct by index).
   const localGlyphMapRef = useRef(new Map());
   // Simple deterministic glyph assignment counter
   const nextGlyphValRef = useRef(0);
@@ -150,19 +150,15 @@ export default function useGame() {
   /**
    * Resolve a display value for a card:
    * - Prefer backend value when provided
-   * - If faceUp/matched but value is null (masked), provide a stable local pseudo value
+   * - If faceUp/matched but value is null (masked), provide a stable local pseudo value per index
    * - Otherwise return null
    */
   const resolveDisplayValue = useCallback((card) => {
     if (card == null) return null;
-    // If backend reveals a value, always use it for consistency of pairs
     if (card.value != null) return card.value;
-    // If UI needs to show it (faceUp or matched) but backend masked value,
-    // provide a stable local pseudo value so both selected cards remain visibly distinct.
     if (card.faceUp || card.matched) {
       const map = localGlyphMapRef.current;
       if (!map.has(card.index)) {
-        // Assign next pseudo value
         const v = nextGlyphValRef.current;
         map.set(card.index, v);
         nextGlyphValRef.current = (v + 1) % 1000;
@@ -301,7 +297,19 @@ export default function useGame() {
           cardsLen: Array.isArray(session.cards) ? session.cards.length : 0,
         });
 
-        // Dev-only: when 4x4 and many cards are revealed, assert we have 8 unique values twice.
+        // Dev-only: detect single-glyph regressions early.
+        if (Array.isArray(session?.cards)) {
+          const vis = session.cards.filter(c => (c.isFaceUp || c.isMatched) && (c.value != null));
+          if (vis.length >= 3) {
+            const uniq = new Set(vis.map(c => c.value));
+            if (uniq.size <= 1) {
+              // eslint-disable-next-line no-console
+              console.warn('[useGame] Multiple revealed cards share the same value unexpectedly', { revealedCount: vis.length, unique: uniq.size });
+            }
+          }
+        }
+
+        // When 4x4 and fully visible, assert 8 unique values in pairs.
         if (session.size === '4x4' && Array.isArray(session.cards)) {
           const revealed = session.cards.filter(c => (c.isFaceUp || c.isMatched) && c.value != null);
           if (revealed.length === 16) {

@@ -14,15 +14,23 @@ import Card from './Card';
 export default function Board({ board, size, onFlip, isBusy }) {
   const columns = useMemo(() => (size === '6x6' ? 6 : 4), [size]);
 
-  // Let global CSS variables determine size/gaps/fonts.
-  // Only specify the number of columns here.
-  // Dev-only sanity: if all revealed in 4x4, ensure 8 uniques x2 by rendering-time sample
+  // Dev-only sanity checks: detect cases where a single glyph/value appears for all revealed cards.
   if (process.env.NODE_ENV !== 'production') {
     try {
+      const revealed = board.filter(c => (c.faceUp || c.matched) && (c.value != null || c.displayValue != null));
+      if (revealed.length >= 3) {
+        const glyphSet = new Set(revealed.map(c => (c.value ?? c.displayValue)));
+        if (glyphSet.size <= 1) {
+          // eslint-disable-next-line no-console
+          console.warn('[Board] All revealed cards appear to share the same glyph/value. Expected variety.', {
+            count: revealed.length, unique: glyphSet.size
+          });
+        }
+      }
       if (board.length === 16) {
-        const revealed = board.filter(c => (c.faceUp || c.matched) && (c.value != null || c.displayValue != null));
-        if (revealed.length === 16) {
-          const vals = revealed.map(c => (c.value ?? c.displayValue));
+        const allRevealed = board.filter(c => (c.faceUp || c.matched) && (c.value != null || c.displayValue != null));
+        if (allRevealed.length === 16) {
+          const vals = allRevealed.map(c => (c.value ?? c.displayValue));
           const counts = new Map();
           vals.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
           const ok = counts.size === 8 && Array.from(counts.values()).every(n => n === 2);
