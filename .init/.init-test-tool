@@ -1,0 +1,4 @@
+{
+    "command": "npm run test",
+    "working_directory": "/home/kavia/workspace/code-generation/memory-match-card-game-222741/memory_flip_card_frontend"
+}
