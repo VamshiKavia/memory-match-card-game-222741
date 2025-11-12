@@ -386,15 +386,15 @@ export default function useGame() {
         // Reconcile to server truth right away
         reconcileSession(result);
 
-        // If mismatch, keep both visible briefly then flip back (server may already reflect this)
+        // If mismatch, keep both visible briefly then flip back (server returns snapshot with both up)
         if (turnResolved && wasMatch === false) {
-          await new Promise((r) => setTimeout(r, 900)); // ~0.9s delay
+          await new Promise((r) => setTimeout(r, 850)); // brief delay before showing flip-back
           try {
-            // Ensure final state after delay is consistent with backend
+            // Ensure final state after delay is consistent with backend (which has already flipped them down)
             const fresh = await getGame(gameId);
             reconcileSession(fresh);
           } catch {
-            // if unable to refresh, we keep reconciled state
+            // ignore refresh error; state will be reconciled on next interaction
           }
         }
       } catch (e) {

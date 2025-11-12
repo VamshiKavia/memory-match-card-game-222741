@@ -29,13 +29,17 @@ export default function Card({ card, onClick, disabled }) {
       aria-label={ariaLabel}
     >
       <div className="card-inner">
-        <div className="card-face card-front" aria-hidden={showValue ? 'true' : 'false'}>
-          ❓
+        {/* Front face (question mark) */}
+        <div className="card-face card-front">
+          {!showValue && '❓'}
         </div>
-        <div className="card-face card-back" aria-hidden={showValue ? 'false' : 'true'}>
-          {/* Use emoji numbers or shapes based on value for playful vibe */}
+
+        {/* Back face (glyph). Keep content present to avoid accidental hiding */}
+        <div className="card-face card-back">
           <span className="card-value">
-            {effectiveValue == null ? '•' : renderValueGlyph(effectiveValue)}
+            {showValue
+              ? (effectiveValue == null ? '•' : renderValueGlyph(effectiveValue))
+              : ''}
           </span>
         </div>
       </div>
