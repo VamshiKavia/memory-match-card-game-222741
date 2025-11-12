@@ -14,6 +14,27 @@ import Card from './Card';
 export default function Board({ board, size, onFlip, isBusy }) {
   const columns = useMemo(() => (size === '6x6' ? 6 : 4), [size]);
 
+  // Define per-size CSS variable overrides for consistent scaling.
+  // Smaller base for 6x6 to fit more cards, slightly larger for 4x4.
+  const cssVars =
+    size === '6x6'
+      ? {
+          // Base side length for cards on a dense grid
+          '--card-min': '56px',
+          '--card-max': '1fr',
+          '--card-gap': '10px',
+          // Aspect ratio height percentage (width -> height mapping, keep 5:6)
+          '--card-aspect': '120%',
+          '--card-font': 'clamp(14px, 2.4vw, 22px)',
+        }
+      : {
+          '--card-min': '72px',
+          '--card-max': '1fr',
+          '--card-gap': '12px',
+          '--card-aspect': '120%',
+          '--card-font': 'clamp(18px, 3.2vw, 28px)',
+        };
+
   return (
     <section
       className="board"
@@ -21,7 +42,8 @@ export default function Board({ board, size, onFlip, isBusy }) {
       aria-label="Memory board"
       aria-busy={isBusy ? 'true' : 'false'}
       style={{
-        gridTemplateColumns: `repeat(${columns}, minmax(64px, 1fr))`,
+        ...cssVars,
+        gridTemplateColumns: `repeat(${columns}, minmax(var(--card-min), var(--card-max)))`,
         pointerEvents: isBusy ? 'none' : 'auto', // disable interaction during evaluation
       }}
     >

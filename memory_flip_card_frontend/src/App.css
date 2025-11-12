@@ -14,6 +14,13 @@
   --card-front: #8B5CF6;
   --card-back: #EC4899;
   --card-shadow: rgba(0,0,0,0.08);
+
+  /* New: sizing variables for board/cards with sensible defaults (used by Board to override) */
+  --card-min: 70px;    /* minimum side (width) */
+  --card-max: 1fr;     /* maximum flex size per grid column */
+  --card-gap: 12px;    /* gap between cards */
+  --card-aspect: 120%; /* height as percentage of width; 120% ~= 5:6 */
+  --card-font: clamp(16px, 3vw, 26px); /* glyph size responsive to card size */
 }
 
 [data-theme="dark"] {
@@ -172,7 +179,7 @@
   margin: 8px auto 48px;
   padding: 0 20px;
   display: grid;
-  gap: 12px;
+  gap: var(--card-gap);
 }
 
 /* Card */
@@ -184,12 +191,14 @@
   padding: 0;
   cursor: pointer;
   outline: none;
+  /* Ensure clickable area equals visual card area */
+  width: 100%;
 }
 .card:disabled { cursor: default; opacity: 0.9; }
 .card-inner {
   position: relative;
   width: 100%;
-  padding-top: 120%; /* aspect ratio 5:6 */
+  padding-top: var(--card-aspect); /* keep aspect ratio */
   transform-style: preserve-3d;
   transition: transform 0.5s ease;
 }
@@ -200,13 +209,14 @@
 .card-face {
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 12px; /* slightly tighter radius for smaller size */
   backface-visibility: hidden;
   box-shadow: 0 8px 18px var(--card-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: var(--card-font);
+  line-height: 1;
 }
 .card-front {
   background: var(--card-front);
@@ -226,7 +236,7 @@
   box-shadow: 0 12px 24px rgba(16,185,129,0.25);
 }
 .card-value {
-  font-size: clamp(20px, 4vw, 36px);
+  font-size: 1em; /* derived from --card-font */
 }
 
 /* Responsive */
@@ -237,4 +247,17 @@
     text-align: center;
   }
   .stats { justify-content: center; }
+
+  /* On smaller screens, slightly reduce gaps and base size for better fit */
+  .board {
+    --card-gap: 10px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 420px) {
+  .board {
+    --card-min: 56px;
+    --card-gap: 8px;
+  }
 }
