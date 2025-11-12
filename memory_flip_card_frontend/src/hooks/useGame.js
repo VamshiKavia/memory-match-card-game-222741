@@ -388,7 +388,8 @@ export default function useGame() {
 
         // If mismatch, keep both visible briefly then flip back (server returns snapshot with both up)
         if (turnResolved && wasMatch === false) {
-          await new Promise((r) => setTimeout(r, 850)); // brief delay before showing flip-back
+          // Shorter, snappier delay to flip back non-matching cards (keeps glyphs stable while waiting)
+          await new Promise((r) => setTimeout(r, 450));
           try {
             // Ensure final state after delay is consistent with backend (which has already flipped them down)
             const fresh = await getGame(gameId);
