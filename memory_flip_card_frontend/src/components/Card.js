@@ -65,8 +65,9 @@ export default function Card({ card, onClick, disabled }) {
  * @returns {string}
  */
 function renderValueGlyph(v) {
-  // First 8 glyphs are used for 4x4 to ensure exactly 8 unique symbols duplicated once.
-  // For larger boards (6x6), wrap through full list but modulo keeps consistency.
-  const glyphs = ['🍎','🍊','🍌','🍉','🍇','🍓','🍒','🍑','🍍','🥝','🥥','🥑','🌶️','🥕','🌽','🥔','🧀','🥨'];
+  // For 4x4 the backend should use exactly this fixed set duplicated once and shuffled:
+  // 🍎, 🍌, 🍇, 🍉, 🍒, 🥝, 🍑, 🍍
+  // Keep these as the first eight entries so modulo mapping preserves intended visuals when values are 0..7.
+  const glyphs = ['🍎','🍌','🍇','🍉','🍒','🥝','🍑','🍍',  '🍊','🍓','🥥','🥑','🌶️','🥕','🌽','🥔','🧀','🥨'];
   return glyphs[Math.abs(v) % glyphs.length];
 }

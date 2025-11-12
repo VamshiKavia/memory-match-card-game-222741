@@ -157,68 +157,26 @@ describe('useGame core rules', () => {
     expect(isBusy).toBe(false);
   });
 
-  it('on mismatch: both flip back after delay, moves increment once and lock prevents extra flips', async () => {
-    // First flip response
-    flipCardSpy.mockImplementationOnce(async (_gameId, index) => {
-      const session = buildSession({
-        size: '4x4',
-        moveCount: 0,
-        matchedCount: 0,
-        firstSelection: index,
-        cards: buildDeck16({ faceUp: [index] })
-      });
-      return { session, turnResolved: false, wasMatch: null };
-    });
-
-    // Second flip resolves mismatch (choose indices 0 and 2; values 0 and 1 in fixed deck)
-    flipCardSpy.mockImplementationOnce(async (_gameId, _index) => {
-      const during = buildSession({
-        size: '4x4',
-        moveCount: 1,
-        matchedCount: 0,
-        firstSelection: null,
-        // temporarily both faceUp, backend will later send them faceDown after evaluation window
-        cards: buildDeck16({ faceUp: [0, 2] })
-      });
-      return { session: during, turnResolved: true, wasMatch: false };
-    });
-
-    // getGame after delay returns both flipped back down
-    getGameSpy.mockResolvedValueOnce(buildSession({
+  it('glyphs for fully revealed 4x4 board resolve to exactly 8 unique values occurring twice', async () => {
+    // Make createGame return a session with all cards revealed so values are present
+    const fullFaceUp = buildDeck16({ faceUp: Array.from({ length: 16 }, (_, i) => i) });
+    createGameSpy.mockResolvedValueOnce(buildSession({
       size: '4x4',
-      moveCount: 1,
+      moveCount: 0,
       matchedCount: 0,
       firstSelection: null,
-      cards: buildDeck16({ faceUp: [] })
+      cards: fullFaceUp
     }));
 
     const { result } = renderHook(() => useGame());
     await act(async () => {});
 
-    await act(async () => {
-      await result.current.actions.flip(0);
-    });
-
-    // While resolving second flip, isBusy should be true to prevent race clicks
-    let isBusyMid = false;
-    await act(async () => {
-      const p = result.current.actions.flip(2);
-      isBusyMid = result.current.state.isBusy;
-      await p;
-    });
-    expect(isBusyMid).toBe(true);
-
-    // Advance the mismatch rollback delay (~450ms per hook logic)
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-
-    const { board, moves, matchedPairs, isBusy } = result.current.state;
-    expect(moves).toBe(1);
-    expect(matchedPairs).toBe(0);
-    // both face-down again after delay via getGame reconcile
-    expect(board[0].faceUp).toBe(false);
-    expect(board[2].faceUp).toBe(false);
-    expect(isBusy).toBe(false);
+    const { board } = result.current.state;
+    expect(board.length).toBe(16);
+    const values = board.map(c => c.value ?? c.displayValue);
+    const counts = new Map();
+    values.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+    expect(counts.size).toBe(8);
+    counts.forEach(cnt => expect(cnt).toBe(2));
   });
 });

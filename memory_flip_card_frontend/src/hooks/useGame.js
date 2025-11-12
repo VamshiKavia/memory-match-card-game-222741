@@ -300,6 +300,23 @@ export default function useGame() {
           firstSelection: session.firstSelection ?? null,
           cardsLen: Array.isArray(session.cards) ? session.cards.length : 0,
         });
+
+        // Dev-only: when 4x4 and many cards are revealed, assert we have 8 unique values twice.
+        if (session.size === '4x4' && Array.isArray(session.cards)) {
+          const revealed = session.cards.filter(c => (c.isFaceUp || c.isMatched) && c.value != null);
+          if (revealed.length === 16) {
+            const counts = new Map();
+            revealed.forEach(c => counts.set(c.value, (counts.get(c.value) || 0) + 1));
+            const uniq = Array.from(counts.values());
+            const ok = counts.size === 8 && uniq.every(n => n === 2);
+            if (!ok) {
+              // eslint-disable-next-line no-console
+              console.warn('[useGame] Glyph/value distribution anomaly in 4x4: expected 8 uniques x2', {
+                counts: Object.fromEntries(counts.entries())
+              });
+            }
+          }
+        }
       } catch {
         // ignore debug log errors
       }

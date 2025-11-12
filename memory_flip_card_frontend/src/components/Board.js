@@ -16,6 +16,27 @@ export default function Board({ board, size, onFlip, isBusy }) {
 
   // Let global CSS variables determine size/gaps/fonts.
   // Only specify the number of columns here.
+  // Dev-only sanity: if all revealed in 4x4, ensure 8 uniques x2 by rendering-time sample
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      if (board.length === 16) {
+        const revealed = board.filter(c => (c.faceUp || c.matched) && (c.value != null || c.displayValue != null));
+        if (revealed.length === 16) {
+          const vals = revealed.map(c => (c.value ?? c.displayValue));
+          const counts = new Map();
+          vals.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+          const ok = counts.size === 8 && Array.from(counts.values()).every(n => n === 2);
+          if (!ok) {
+            // eslint-disable-next-line no-console
+            console.warn('[Board] Visible value distribution anomaly (expect 8 uniques x2).', { counts: Object.fromEntries(counts.entries()) });
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <section
       className="board"

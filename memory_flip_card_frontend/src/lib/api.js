@@ -143,15 +143,16 @@ export async function createGame({ size = '4x4' } = {}) {
         // eslint-disable-next-line no-console
         console.warn('[createGame] Expected 16 cards for 4x4, got', total);
       }
-      // If backend reveals values on init (rare), verify duplicates; otherwise skip
+      // If backend reveals values on init, assert correct distribution of pairs
       const revealed = session.cards.filter(c => (c.value != null));
-      if (revealed.length > 0) {
+      if (revealed.length === 16) {
         const counts = new Map();
         revealed.forEach(c => counts.set(c.value, (counts.get(c.value) || 0) + 1));
-        // eslint-disable-next-line no-console
-        counts.forEach((cnt, val) => {
-          if (cnt % 2 !== 0) console.warn(`[createGame] Value ${val} appears odd times (${cnt})`);
-        });
+        const ok = counts.size === 8 && Array.from(counts.values()).every(n => n === 2);
+        if (!ok) {
+          // eslint-disable-next-line no-console
+          console.warn('[createGame] 4x4 deck does not contain 8 pairs; distribution:', Object.fromEntries(counts.entries()));
+        }
       }
     } catch {
       // non-fatal
