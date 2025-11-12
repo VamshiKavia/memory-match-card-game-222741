@@ -137,6 +137,34 @@ export default function useGame() {
   // Track first card selected for local optimistic logic
   const firstSelectedRef = useRef(null);
 
+  // Local glyph map used when backend value is temporarily masked; stable per session
+  // Maps card.index -> stable pseudo-value number for glyph selection
+  const localGlyphMapRef = useRef(new Map());
+  // Simple deterministic glyph assignment counter
+  const nextGlyphValRef = useRef(0);
+
+  /**
+   * Resolve a display value for a card:
+   * - Prefer backend value when provided
+   * - If faceUp/matched but value is null (masked), provide a stable local pseudo value
+   * - Otherwise return null
+   */
+  const resolveDisplayValue = useCallback((card) => {
+    if (card == null) return null;
+    if (card.value != null) return card.value;
+    if (card.faceUp || card.matched) {
+      const map = localGlyphMapRef.current;
+      if (!map.has(card.index)) {
+        // Assign next pseudo value
+        const v = nextGlyphValRef.current;
+        map.set(card.index, v);
+        nextGlyphValRef.current = (v + 1) % 1000;
+      }
+      return map.get(card.index);
+    }
+    return null;
+  }, []);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -193,13 +221,26 @@ export default function useGame() {
         setSize(session.size || s);
         setMoves(session.moveCount || 0);
         setGameOver(!!session.gameOver);
-        setBoard(toBoard(session.cards || []));
+        // Reset local glyph map at new game start
+        localGlyphMapRef.current = new Map();
+        nextGlyphValRef.current = 0;
+        const initial = toBoard(session.cards || []);
+        // Compute displayValue immediately for UI
+        const withDisplay = initial.map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
+        setBoard(withDisplay);
         setMatchedPairs(session.matchedCount || 0);
         setTimeSeconds(0);
         firstSelectedRef.current = session.firstSelection ?? null;
         // timer resets; do not start until first flip
         stopTimer();
         setBestScore(loadBest(s));
+        // Debug logs to aid diagnosis of masked values
+        try {
+          // eslint-disable-next-line no-console
+          console.debug('[Game] createGame session', { sessionId: newId, size: session.size, cards: session.cards });
+          // eslint-disable-next-line no-console
+          console.debug('[Game] initial board', withDisplay.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
+        } catch {}
       } catch (e) {
         setError(e?.message || 'Failed to start game');
       } finally {
@@ -227,12 +268,23 @@ export default function useGame() {
       setSize(session.size || size);
       setMoves(session.moveCount || 0);
       setGameOver(!!session.gameOver);
-      setBoard(toBoard(session.cards || []));
+      // Reset local pseudo glyph state on reset
+      localGlyphMapRef.current = new Map();
+      nextGlyphValRef.current = 0;
+      const initial = toBoard(session.cards || []);
+      const withDisplay = initial.map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
+      setBoard(withDisplay);
       setMatchedPairs(session.matchedCount || 0);
       setTimeSeconds(0);
       firstSelectedRef.current = session.firstSelection ?? null;
       stopTimer();
       setBestScore(loadBest(session.size || size));
+      try {
+        // eslint-disable-next-line no-console
+        console.debug('[Game] resetGame session', { sessionId: session.session_id, size: session.size, cards: session.cards });
+        // eslint-disable-next-line no-console
+        console.debug('[Game] board after reset', withDisplay.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
+      } catch {}
     } catch (e) {
       setError(e?.message || 'Failed to reset game');
     } finally {
@@ -246,12 +298,30 @@ export default function useGame() {
    */
   const reconcileSession = useCallback((payload) => {
     const session = payload.session || payload;
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[Game] reconcile payload', {
+        moveCount: session.moveCount,
+        matchedCount: session.matchedCount,
+        firstSelection: session.firstSelection,
+        gameOver: session.gameOver,
+        sampleCards: (session.cards || []).slice(0, 4)
+      });
+    } catch {}
     setMoves(session.moveCount || 0);
     setMatchedPairs(session.matchedCount || 0);
     setGameOver(!!session.gameOver);
-    setBoard(toBoard(session.cards || []));
+    const mapped = toBoard(session.cards || []);
+    const withDisplay = mapped.map((c) => {
+      // If backend now provides value for an index we had a local mapping for, prefer backend
+      if (c.value != null && localGlyphMapRef.current.has(c.index)) {
+        // optional: keep map entry but it won't be used when value exists
+      }
+      return { ...c, displayValue: resolveDisplayValue(c) };
+    });
+    setBoard(withDisplay);
     firstSelectedRef.current = session.firstSelection ?? null;
-  }, []);
+  }, [resolveDisplayValue]);
 
   /**
    * Handle end of game: stop timer and persist best score
@@ -288,7 +358,7 @@ export default function useGame() {
         if (!target || target.faceUp || target.matched) return;
         const optimistic = prev.map((c, i) =>
           i === index ? { ...c, faceUp: true } : c
-        );
+        ).map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
         setBoard(optimistic);
         firstSelectedRef.current = index;
         // start timer on very first flip of the game session
@@ -297,11 +367,17 @@ export default function useGame() {
         try {
           // Send first flip to backend (no move increment yet)
           const result = await flipCard(gameId, index);
+          try {
+            // eslint-disable-next-line no-console
+            console.debug('[Game] first flip result', { turnResolved: result.turnResolved, wasMatch: result.wasMatch, sessionMoves: result?.session?.moveCount });
+          } catch {}
           // Merge with server truth to avoid drift
           reconcileSession(result);
         } catch (e) {
           // Rollback optimistic flip on error
-          setBoard(prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c)));
+          const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))
+            .map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
+          setBoard(rolledBack);
           firstSelectedRef.current = null;
           setError(e?.message || 'Flip failed');
         }
@@ -321,7 +397,7 @@ export default function useGame() {
       // Optimistically flip second card to show the user
       const optimisticSecond = prev.map((c, i) =>
         i === index ? { ...c, faceUp: true } : c
-      );
+      ).map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
       setBoard(optimisticSecond);
       setIsBusy(true);
 
@@ -330,6 +406,11 @@ export default function useGame() {
         // Server will increment moveCount and determine match
         const turnResolved = !!result.turnResolved;
         const wasMatch = result.wasMatch;
+
+        try {
+          // eslint-disable-next-line no-console
+          console.debug('[Game] second flip result', { turnResolved, wasMatch, sessionMoves: result?.session?.moveCount });
+        } catch {}
 
         // Always reconcile to server state first
         reconcileSession(result);
@@ -342,6 +423,10 @@ export default function useGame() {
           // Refresh state from server to avoid desync after delay
           try {
             const fresh = await getGame(gameId);
+            try {
+              // eslint-disable-next-line no-console
+              console.debug('[Game] refreshed session after mismatch delay', { moveCount: fresh.moveCount, matchedCount: fresh.matchedCount });
+            } catch {}
             reconcileSession(fresh);
           } catch {
             // If refresh fails, we keep whatever state we already have from result
@@ -349,7 +434,9 @@ export default function useGame() {
         }
       } catch (e) {
         // On error, rollback the optimistic second flip
-        setBoard(prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c)));
+        const rolledBack = prev.map((c, i) => (i === index ? { ...c, faceUp: false } : c))
+          .map((c) => ({ ...c, displayValue: resolveDisplayValue(c) }));
+        setBoard(rolledBack);
         setError(e?.message || 'Flip failed');
         // best-effort sync from server to avoid drift
         try {
@@ -365,7 +452,7 @@ export default function useGame() {
         setIsBusy(false);
       }
     },
-    [board, gameOver, gameId, isBusy, reconcileSession, startTimer]
+    [board, gameOver, gameId, isBusy, reconcileSession, startTimer, resolveDisplayValue]
   );
 
   // Initial auto-start a game on mount if none exists
@@ -380,6 +467,14 @@ export default function useGame() {
   }, []);
 
   const formattedTime = useMemo(() => formatTime(timeSeconds), [timeSeconds]);
+
+  // Dev-only: log board concise summary when it changes; helpful for diagnosing missing glyphs
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[Game] board update', board.map(({ index, faceUp, matched, value, displayValue }) => ({ index, faceUp, matched, value, displayValue })));
+    } catch {}
+  }, [board]);
 
   const state = useMemo(
     () => ({

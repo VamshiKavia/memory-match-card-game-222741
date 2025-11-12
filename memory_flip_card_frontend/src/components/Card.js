@@ -10,13 +10,14 @@ import React from 'react';
  * @param {boolean} props.disabled
  */
 export default function Card({ card, onClick, disabled }) {
-  const { faceUp, matched, value } = card;
+  const { faceUp, matched, value, displayValue } = card;
   const showValue = faceUp || matched;
+  const effectiveValue = (displayValue != null ? displayValue : value);
 
   const ariaLabel = matched
     ? 'Matched card'
     : faceUp
-      ? `Card value ${value ?? '?'}`
+      ? `Card value ${effectiveValue ?? '?'}`
       : 'Face-down card';
 
   return (
@@ -34,7 +35,7 @@ export default function Card({ card, onClick, disabled }) {
         <div className="card-face card-back" aria-hidden={showValue ? 'false' : 'true'}>
           {/* Use emoji numbers or shapes based on value for playful vibe */}
           <span className="card-value">
-            {value == null ? '•' : renderValueGlyph(value)}
+            {effectiveValue == null ? '•' : renderValueGlyph(effectiveValue)}
           </span>
         </div>
       </div>
